@@ -1,0 +1,8 @@
+{
+  "name": "Abhawa",
+  "description": "A premium, high-quality weather application providing detailed forecasts, summaries, and prayer times with a dual-language interface (Bengali/English).",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "prompt": ""
+}
