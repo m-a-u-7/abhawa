@@ -24,7 +24,7 @@ function parseJsonResponse<T>(text: string): T {
 
 export async function fetchWeather(ai: GoogleGenAI, location: string, lang: Language): Promise<WeatherData> {
     const prompt = `
-        You are a meteorological expert AI. Your sole purpose is to provide weather data that is as accurate and reliable as professional services like Google Weather or AccuWeather. The user's safety and planning depend on your accuracy. **NEVER guess or fabricate data.** All data must be derived directly from the search results of top-tier weather providers. Lives and property may be at stake.
+        You are a meteorological expert AI. Your sole purpose is to provide weather data that is as accurate and reliable as professional services like Google Weather or AccuWeather. The user's safety and planning depend on your accuracy. **NEVER guess or fabricate data.** All data must be derived directly from the search results of top-tier weather providers.
 
         You will be given a location: "${location}". Your tasks are:
         1.  **Location Resolution**: First, identify the most specific possible location. Resolve it to its primary name, and its administrative details (like Upazila, District, Country). For example, if the input is "Kadakati", resolve it to a primary name "Kadakati" and details "Assasuni, Satkhira, Bangladesh".
@@ -43,11 +43,18 @@ export async function fetchWeather(ai: GoogleGenAI, location: string, lang: Lang
             - **\`hourly\` forecast arrays**:
                 - For \`daily[0]\` (today), the \`hourly\` array must contain a 24-hour forecast starting from the **current hour of the day**.
                 - For all subsequent days (\`daily[1]\` through \`daily[6]\`), the \`hourly\` array must contain a complete 24-hour forecast for that entire day (from 00:00 to 23:00).
-        8. **MANDATORY - Data Completeness**:
-            - You **MUST** return exactly 7 items in the \`daily\` array, one for today and one for each of the next 6 days. **NO EXCEPTIONS.**
-            - **EVERY SINGLE FIELD** in the JSON schema must be populated with a valid value. Do not use null, empty strings, or placeholders. If a piece of data cannot be found, you must find a reasonable and accurate substitute from reliable sources. Incomplete data is unacceptable.
-        8.5. **AccuWeather URL**: After resolving the location, perform an additional Google Search to find the specific AccuWeather forecast page URL for that location. The URL should look something like \`https://www.accuweather.com/en/bd/satkhira/29013/weather-forecast/29013\`. Include this URL in the JSON response in the \`accuweatherUrl\` field. If a specific page cannot be found, omit this field.
-        9.  **Output Format**: Return the entire output as a single, minified JSON object that strictly adheres to the following TypeScript interface. Ensure all fields are present and the \`icon\` value is ONLY one of the specified \`WeatherIconType\` values.
+        8.  **MANDATORY - AccuWeather URL Generation**: You must generate a precise AccuWeather URL. Follow these steps *exactly*:
+            a. From your location resolution in step 1, identify the specific Upazila and District (e.g., 'Assasuni', 'Satkhira').
+            b. Perform a targeted Google Search to find the unique AccuWeather **Location Key** for that place. Use a query like: "accuweather location key for Assasuni, Satkhira, Bangladesh".
+            c. The key is a number (e.g., \`29013\`).
+            d. Sanitize the primary location name (Upazila or District) for the URL: make it lowercase and replace spaces with hyphens (e.g., "Assasuni" becomes "assasuni").
+            e. Construct the final URL using this exact pattern: \`https://www.accuweather.com/en/bd/[sanitized-location-name]/[location-key]/weather-forecast/[location-key]\`.
+            f. Example: For a location in Assasuni, Satkhira (key 29013), the final URL would be \`https://www.accuweather.com/en/bd/assasuni/29013/weather-forecast/29013\`.
+            g. Place this constructed URL into the \`accuweatherUrl\` field in the JSON. If a location key cannot be found after a diligent search, and only in that case, you may omit the \`accuweatherUrl\` field.
+        9.  **MANDATORY - Data Completeness & Integrity**:
+            - You **MUST** return exactly 7 items in the \`daily\` array, for today and the next 6 days. **THIS IS A NON-NEGOTIABLE REQUIREMENT.** Do not provide a shorter forecast.
+            - **EVERY SINGLE FIELD** in the JSON schema must be populated with an accurate, non-null value. This explicitly includes the \`dates\` object: you must find and provide the \`gregorian\`, \`bengali\`, AND \`hijri\` dates for the current day. Incomplete data is a failure to complete the task.
+        10. **Output Format**: Return the entire output as a single, minified JSON object that strictly adheres to the following TypeScript interface. Ensure all fields are present and the \`icon\` value is ONLY one of the specified \`WeatherIconType\` values.
             \`\`\`typescript
             interface GroundingSource { uri: string; title: string; }
             type WeatherIconType = 'clear-day' | 'clear-night' | 'partly-cloudy-day' | 'partly-cloudy-night' | 'cloudy' | 'rain' | 'sleet' | 'snow' | 'wind' | 'fog' | 'thunderstorm' | 'drizzle' | 'rain-heavy' | 'thunderstorm-rain' | 'default';
@@ -60,7 +67,7 @@ export async function fetchWeather(ai: GoogleGenAI, location: string, lang: Lang
     `;
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-04-17',
+        model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
             tools: [{ googleSearch: {} }],
@@ -101,7 +108,7 @@ export async function fetchPrayerTimes(ai: GoogleGenAI, location: string, lang: 
     `;
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview-04-17',
+        model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
             tools: [{ googleSearch: {} }],
